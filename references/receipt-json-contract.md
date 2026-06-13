@@ -19,6 +19,7 @@
   "theme": "dailv",
   "typeImage": "",
   "typeImageMode": "clean",
+  "typeGlyph": " /\\\\_/\\\\\n( o.o )\n > ^ <",
   "receipt": {}
 }
 ```
@@ -40,7 +41,7 @@ xiangjin
 
 固定字段，不要增删字段名。
 
-注意：分享小票里不出现 `source`、`confidence` 这种模型后台字段。来源、证据强度和四维分数放在 analysis JSON；展示层只保留用户能分享的 `match`、`mbti` 和行动签。
+注意：分享小票里不出现 `source`、`confidence`、`match` 这种模型后台字段。来源、证据强度和四维分数放在 analysis JSON；展示层只保留用户能分享的 `mbti`、`type`、`rarity` 和行动签。
 
 ```json
 {
@@ -54,14 +55,13 @@ xiangjin
   "counter": "NO.001",
   "receiptId": "PR_20260613_001_A7C3",
   "mbti": "INFJ",
-  "match": "64%",
   "energy": "喝热咖啡",
   "decision": "先别回消息",
   "stress": "找人吐槽",
   "collab": "约人散步",
   "total": "柔软但警觉",
   "type": "白猫",
-  "rarity": "12%",
+  "rarity": "8.0%",
   "verdict": "SOFT FACE. SHARP SENSOR.",
   "barcode": "||| ||||| || ||| | |||"
 }
@@ -70,8 +70,8 @@ xiangjin
 ## 字段口径
 
 - `heading`: 固定 `RECEIPT`，不要改成中文。
-- `cashier`: 固定 `CASHIER`，语义是收银员。
-- `cashierValue`: 撰写小票的模型名，例如 `GPT-5`。
+- `cashier`: 固定 `CASHIER`，语义是出票者标签，不随模型变化。
+- `cashierValue`: 撰写并填写这张 JSON 的实际模型或 agent 名，例如 `GPT-5`、`Claude Sonnet`、`Codex`。生成时必须按当前执行者更新，不要照抄模板示例；renderer 和 app 只显示该字段，不自动识别模型，缺省只兜底为 `MODEL`。
 - `payment`: 固定 `PAYMENT`，语义是付款方。
 - `paymentValue`: 用户名或分享名，例如 `YESHU`。
 - `dateLine`: 固定 `DATE`，下一行左侧展示具体时间。
@@ -79,11 +79,10 @@ xiangjin
 - `counter`: 小票序号，第一张用 `NO.001`。
 - `receiptId`: 票据 ID，例如 `PR_20260613_001_A7C3`；格式建议 `PR_YYYYMMDD_序号_随机码`，随机码用 4 位大写十六进制，避免多人分享时撞号；展示在整张票最底部，不和 `counter` 混用。
 - `mbti`: MBTI 压缩标签，票面标签为 `MBTI`；不知道就写 `N/A`，不要写成诊断。
-- `match`: 匹配度百分比，票面标签为 `匹配度(MATCH)`；娱乐版不要高于 `70%`。
 - `energy/decision/stress/collab`: 每项填一个可执行行动签，不填百分比；票面右栏标题为 `ACTION`。短到能被人当天照做，例如 `喝热咖啡`、`先别回消息`、`找人吐槽`、`约人散步`。
 - `total`: 中文总计，最多 8 个汉字。
-- `type`: 类型提示，票面标签为 `类型(TYPE)`；直接写分享友好的原型名，例如 `白猫`。
-- `rarity`: 稀有度百分比，票面标签为 `稀有度(RARITY)`；格式如 `12%`，不要写成等级词。
+- `type`: 类型提示，票面标签为 `类型(TYPE)`；直接写分享友好的原型名，例如 `白猫`、`灯塔`、`云火花`、`档案盒`。
+- `rarity`: 稀有度百分比，票面标签为 `稀有度(RARITY)`；参考 `buddy-stamps.md` 的锚点表校准尺度，但允许自由 type 自带百分比。
 - `verdict`: 英文判词，最多 32 个字符。
 - `barcode`: ASCII 条码，只用 `|`、空格和短横。
 
@@ -91,8 +90,9 @@ xiangjin
 
 - `typeImage`: 可空。由外部系统填本地路径、URL 或 data URL，表示顶部类型图像，不绑定具体动物。
 - `typeImageMode`: `clean`、`stamp`、`thermal` 之一。
+- `typeGlyph`: 可空。无 `typeImage` 时展示的 ASCII 类型印章，最多 5 行，每行不超过 24 字符；优先从 `references/type-glyphs.md` 选择，不临场乱画。
 
-模型看不到图片文件时，不要编造路径，留空。
+模型看不到图片文件时，不要编造路径，`typeImage` 留空，并填写 `typeGlyph`。
 
 ## 行动签选择原则
 
@@ -122,7 +122,7 @@ collab   轻连接：约人散步 / 发个语音 / 借个脑子 / 讲五分钟
 ```json
 {
   "type": "白猫",
-  "match": "48%",
-  "rarity": "12%"
+  "rarity": "8.0%",
+  "mbti": "N/A"
 }
 ```

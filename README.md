@@ -1,6 +1,6 @@
 <!--
-[INPUT]: 依赖 SKILL.md 的人格小票生成流程、references/check.md 的真相源检查协议、assets/app/scripts 的可运行实现和 GitHub 安装路径
-[OUTPUT]: 对外提供 personality-receipt 的中文说明、真相源、安装方式、工作流、线上 demo、渲染命令、目录结构和完整性检查方法
+[INPUT]: 依赖 SKILL.md 的人格小票生成流程、assets/app/scripts 的可运行实现和 GitHub 安装路径
+[OUTPUT]: 对外提供 personality-receipt 的中文说明、安装方式、工作流、线上 demo、PNG 渲染命令、app HTML 链路和目录结构
 [POS]: personality-receipt 的人类入口说明，面向 GitHub 读者解释这个 skill 如何从人格判断生成可分享小票
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -10,16 +10,6 @@
 把对话、记忆或一段自我描述，压成一张可分享的热敏纸风格人格小票。
 
 它不是 MBTI 测试，也不是心理诊断。MBTI 只是短标签；真正有用的是小票里的行动签、类型原型、类型提示、稀有度和一句适合分享的判词。
-
-## 三个真相源
-
-```text
-GitHub repo     # skill 包完整真相源
-SKILL.md        # agent 工作流真相源
-app/ + scripts/ # 页面预览与 PNG 渲染真相源
-```
-
-小红书、截图、帖子正文和复制文本都可能过滤 `.html`、脚本、长 JSON 或目录结构。只把它们当入口，不当安装源。
 
 ## 这个技能做什么
 
@@ -31,7 +21,7 @@ app/ + scripts/ # 页面预览与 PNG 渲染真相源
 4. 压缩成 MBTI/type 提示，但不把类型当身份。
 5. 生成类型印章、行动签、总评、类型和稀有度。
 6. 输出中文热敏纸小票。
-7. 需要图片时，写 receipt JSON 并用本地 renderer 或静态 app 生成 PNG。
+7. 需要图片时，写 app.v1 receipt JSON；本地 renderer 复用静态 app 导出 PNG，网页验收用 app HTML fixture 承载同一份 JSON。
 
 ## 安装
 
@@ -45,7 +35,7 @@ npx skills add hiyeshu/personality-receipt
 git clone https://github.com/hiyeshu/personality-receipt.git
 ```
 
-如果你是从小红书看到这个项目，不要复制帖子里的代码安装。回 GitHub 安装，再按 `references/check.md` 检查完整性。
+本仓库根目录就是一个 Agent Skill：`SKILL.md` 是唯一必需入口；`references/` 放按需读取的规则，`scripts/` 放非交互执行器，`assets/` 放 JSON 模板和样例。`app/`、`test/`、`agents/` 是附加目录，用来支撑网页导出、验收样例和 Codex UI 元数据。
 
 ## 触发词
 
@@ -78,7 +68,7 @@ open app/index.html
 - 卡通打印机和出纸动效
 - 传统中国色墨水：黑、黛蓝、黛绿、胭脂、赭茶、缃金
 - 图片上传并热敏化
-- 编辑 cashier、payment、MBTI、match、total、type、rarity、actions、verdict
+- 编辑 cashier、payment、MBTI、total、type、rarity、actions、verdict
 - 透明 PNG 下载和 Web Share fallback
 
 导出 ID 形如：
@@ -104,23 +94,24 @@ PR_YYYYMMDD_001_A7C3
   "cashierValue": "GPT-5",
   "paymentValue": "YESHU",
   "mbti": "INFJ",
-  "match": "64%",
   "energy": "喝热咖啡",
   "decision": "先别回消息",
   "stress": "找人吐槽",
   "collab": "约人散步",
   "total": "柔软但警觉",
   "type": "白猫",
-  "rarity": "12%",
+  "rarity": "8.0%",
   "verdict": "SOFT FACE. SHARP SENSOR."
 }
 ```
 
 四个 signal 值是行动签，不是分数。分数可以留在分析里，公开小票只放当天能做的小动作。
+`cashierValue` 是实际生成 JSON 的模型或 agent 名；`GPT-5` 只是示例，换模型时要同步改成当前执行者。没填时 app/renderer 只兜底显示 `MODEL`，避免冒充具体模型。
+`rarity` 是 type 的稀有度百分比。参考表只做校准锚点，自由 type 可以自带百分比。
 
 ## PNG renderer
 
-使用 Node renderer 生成确定性 PNG：
+使用 Node renderer 生成确定性三件套。renderer 不维护第二套模板；它把 app.v1 JSON 注入 `app/index.html`，先保存单张小票 HTML fixture，再加载 `app/app.js` 调用 canvas 导出 API：
 
 ```bash
 node scripts/render-receipt.mjs assets/sample-receipt.json
@@ -132,31 +123,21 @@ node scripts/render-receipt.mjs assets/sample-receipt.json
 node scripts/render-receipt.mjs assets/sample-receipt.json --output outputs/PR_DEMO.png
 ```
 
-默认 `2x` 导出：逻辑尺寸 `384 x 620`，产物约 `768 x 1240`。
-`outputs/*.png` 是可复生成文件，默认不入库。
-
-## 完整性检查
-
-从小红书、帖子或复制文本加载过 skill 时，先检查：
+同时指定 JSON 和 HTML：
 
 ```bash
-test -f SKILL.md
-test -f references/check.md
-test -f assets/receipt-card.html
-test -f scripts/render-receipt.mjs
-test -f app/index.html
-node --check scripts/render-receipt.mjs
-node --check app/app.js
+node scripts/render-receipt.mjs assets/sample-receipt.json --output outputs/PR_DEMO.png --json-output outputs/PR_DEMO.json --html-output outputs/PR_DEMO.html
 ```
 
-完整规则见 [`references/check.md`](references/check.md)。
+默认 `2x` 导出，PNG 尺寸由 app 票面内容决定；当前验收样例宽度为 860px，高度随内容约 1584-1848px。
+默认会按 PNG 同名生成 `.json` 和 `.html`。`outputs/*.json`、`outputs/*.html` 和 `outputs/*.png` 是本地生成物，默认不入库。
 
 ## 边界
 
 好边界是：
 
 ```text
-agent reasoning -> receipt JSON -> local renderer/app -> PNG
+agent reasoning -> app.v1 receipt JSON -> app/index.html + app/app.js -> HTML + PNG
 ```
 
 不要把长证据、心理诊断、后台字段或邮件投递塞进图片。小票要短、可打印、可分享。
@@ -167,8 +148,8 @@ agent reasoning -> receipt JSON -> local renderer/app -> PNG
 
 | 工具 | 用途 |
 |------|------|
-| Node.js 18+ | 运行 renderer 和语法检查 |
-| Chrome / Chromium | renderer 截图导出 PNG |
+| Node.js 22+ | 运行 renderer、语法检查和 Chrome DevTools 导出 |
+| Chrome / Chromium | renderer 加载 app 并导出 PNG |
 | 浏览器 | 打开静态 app |
 
 静态 app 没有构建步骤。
@@ -190,12 +171,11 @@ personality-receipt/
 │   └── app.js                        # 小票编辑、动画、导出和分享逻辑
 ├── assets/
 │   ├── CLAUDE.md                     # assets 局部地图
-│   ├── receipt-card.html             # renderer 使用的固定 HTML 模板
 │   ├── receipt-model-template.json   # 模型填写用 app.v1 模板
-│   └── sample-receipt.json           # renderer 样例输入
+│   └── sample-receipt.json           # app.v1 renderer 样例输入
 ├── references/
 │   ├── CLAUDE.md                     # references 局部地图
-│   ├── check.md                      # GitHub 真相源查漏协议
+│   ├── check.md                      # 安装完整性查漏协议
 │   ├── pattern-fields.md             # 运行模式字段口径
 │   ├── gap-questions.md              # 缺口问题模板
 │   ├── buddy-stamps.md               # 类型印章规则
@@ -204,9 +184,14 @@ personality-receipt/
 │   └── receipt-json-contract.md      # app.v1 JSON 契约
 ├── scripts/
 │   ├── CLAUDE.md                     # scripts 局部地图
-│   └── render-receipt.mjs            # JSON -> PNG renderer
+│   └── render-receipt.mjs            # JSON -> HTML + PNG renderer
+├── test/
+│   ├── CLAUDE.md                     # test 局部地图
+│   ├── inputs/                       # 三组 app.v1 无图验收 JSON
+│   ├── html/                         # app HTML fixture
+│   └── png/                          # app 导出的 PNG 小票
 └── outputs/
-    └── CLAUDE.md                     # outputs 局部地图，PNG 本地生成不入库
+    └── CLAUDE.md                     # outputs 局部地图，JSON/HTML/PNG 本地生成不入库
 ```
 
 ## 验证

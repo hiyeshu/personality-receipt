@@ -1,2 +1,4 @@
 .DS_Store
 outputs/*.png
+outputs/*.json
+outputs/*.html

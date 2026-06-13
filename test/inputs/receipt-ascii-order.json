@@ -1,0 +1,27 @@
+{
+  "_contract": "personality-receipt.app.v1",
+  "theme": "dailan",
+  "typeImage": "",
+  "typeImageMode": "clean",
+  "typeGlyph": " .----.\n | [] |\n | [] |\n |____|\n /____\\",
+  "receipt": {
+    "heading": "RECEIPT",
+    "cashier": "CASHIER",
+    "cashierValue": "GPT-5",
+    "payment": "PAYMENT",
+    "paymentValue": "YESHU",
+    "dateLine": "DATE",
+    "time": "2026-06-13 14:33",
+    "counter": "NO.003",
+    "receiptId": "PR_TEST_ASCII_ORDER",
+    "mbti": "ISTJ",
+    "energy": "整理桌面",
+    "decision": "列三条证据",
+    "stress": "按步执行",
+    "collab": "给出清单",
+    "total": "秩序回温",
+    "type": "白猫",
+    "verdict": "ORDER FIRST. WARMTH FOLLOWS.",
+    "barcode": "|| |||| | ||| |||| || |"
+  }
+}

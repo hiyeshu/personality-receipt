@@ -1,0 +1,27 @@
+{
+  "_contract": "personality-receipt.app.v1",
+  "theme": "dailv",
+  "typeImage": "",
+  "typeImageMode": "clean",
+  "typeGlyph": "  [==]\n <|..|>\n  |__|\n _/  \\_",
+  "receipt": {
+    "heading": "RECEIPT",
+    "cashier": "CASHIER",
+    "cashierValue": "GPT-5",
+    "payment": "PAYMENT",
+    "paymentValue": "YESHU",
+    "dateLine": "DATE",
+    "time": "2026-06-13 14:20",
+    "counter": "NO.001",
+    "receiptId": "PR_TEST_ASCII_FOCUS",
+    "mbti": "INTJ",
+    "energy": "关灯写十行",
+    "decision": "画出边界",
+    "stress": "删掉噪音",
+    "collab": "给我目标",
+    "total": "冷光聚焦",
+    "type": "猫头鹰",
+    "verdict": "QUIET LIGHT. HARD EDGE.",
+    "barcode": "|||| | ||| || |||| | |||"
+  }
+}

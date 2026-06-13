@@ -1,11 +1,12 @@
 /**
- * [INPUT]: 依赖 app/index.html 的 DOM 节点、浏览器 canvas/Web Share/FileReader 能力和上传图片源
- * [OUTPUT]: 对外提供一键热敏化图片处理、小票出纸动效、响应式预览同步、分享字段编辑、DOM 测量透明 PNG 导出和分享动作
+ * [INPUT]: 依赖 app/index.html 的 DOM 节点、可选 window.PERSONALITY_RECEIPT_BOOTSTRAP/EXPORT_SCALE/AUTO_REPLAY、浏览器 canvas/Web Share/FileReader 能力、上传图片源和无图 ASCII typeGlyph
+ * [OUTPUT]: 对外提供 app.v1 JSON 注入、一键热敏化图片处理、ASCII 兜底、小票出纸动效、响应式预览同步、分享字段编辑、DOM 测量透明 PNG 导出和分享动作
  * [POS]: app 的行为层，被 index.html 加载，和 CSS/DOM 共同组成静态演示页面
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 const BLOCKS = '░▒▓█▌▐▀▄■□▪▫';
 const PAPER = '#fffaf0';
+const DEFAULT_TYPE_GLYPH = ' /\\\\_/\\\\\n( o.o )\n > ^ <';
 const RECEIPT_IMAGE_PRESET = Object.freeze({
   targetWidth: 220,
   matrixSize: 4,
@@ -22,7 +23,11 @@ const TYPE_IMAGE_MODES = Object.freeze({
   stamp: { ...RECEIPT_IMAGE_PRESET, brightness: 0.9, contrast: 1.45, enableDither: false },
   thermal: RECEIPT_IMAGE_PRESET
 });
-const EXPORT_SCALE = 2;
+const requestedExportScale = Number(window.PERSONALITY_RECEIPT_EXPORT_SCALE || 2);
+const EXPORT_SCALE = Number.isFinite(requestedExportScale) && requestedExportScale > 0
+  ? requestedExportScale
+  : 2;
+const AUTO_REPLAY = window.PERSONALITY_RECEIPT_AUTO_REPLAY !== false;
 const BAYER_2 = [[0, 2], [3, 1]];
 const THEMES = {
   black: ['#2b2723', '#7a7164'],
@@ -61,11 +66,25 @@ function createReceiptId(date) {
 }
 
 const receiptCreatedAt = new Date();
+const bootstrap = window.PERSONALITY_RECEIPT_BOOTSTRAP || {};
+const REFERENCE_RARITY = Object.freeze({
+  '白猫': '8.0%',
+  '狐狸': '6.5%',
+  '水母': '4.0%',
+  '兔子': '9.5%',
+  '章鱼': '3.2%',
+  '猫头鹰': '2.8%',
+  '云团': '14.0%'
+});
+
+function rarityForType(type) {
+  return REFERENCE_RARITY[String(type || '').trim()] || REFERENCE_RARITY['云团'];
+}
 
 const data = {
   heading: 'RECEIPT',
   cashier: 'CASHIER',
-  cashierValue: 'GPT-5',
+  cashierValue: 'MODEL',
   payment: 'PAYMENT',
   paymentValue: 'YESHU',
   dateLine: 'DATE',
@@ -73,23 +92,22 @@ const data = {
   counter: 'NO.001',
   receiptId: createReceiptId(receiptCreatedAt),
   mbti: 'INFJ',
-  match: '64%',
   energy: '喝热咖啡',
   decision: '先别回消息',
   stress: '找人吐槽',
   collab: '约人散步',
   total: '柔软但警觉',
   type: '白猫',
-  rarity: '12%',
   verdict: 'SOFT FACE. SHARP SENSOR.',
-  barcode: '||| ||||| || ||| | |||'
+  barcode: '||| ||||| || ||| | |||',
+  ...(bootstrap.receipt || {})
 };
+data.rarity = data.rarity || rarityForType(data.type);
 
 const EDIT_FIELDS = Object.freeze({
   cashierInput: 'cashierValue',
   paymentInput: 'paymentValue',
   mbtiInput: 'mbti',
-  matchInput: 'match',
   totalInput: 'total',
   typeInput: 'type',
   rarityInput: 'rarity',
@@ -101,10 +119,11 @@ const EDIT_FIELDS = Object.freeze({
 });
 
 const state = {
-  typeSource: '',
+  typeSource: bootstrap.typeImage || '',
   typeImage: '',
-  typeMode: 'thermal',
-  theme: 'dailv'
+  typeGlyph: bootstrap.typeGlyph || DEFAULT_TYPE_GLYPH,
+  typeMode: bootstrap.typeImageMode || 'thermal',
+  theme: bootstrap.theme || 'dailv'
 };
 
 const receiptShell = document.querySelector('.receipt-shell');
@@ -139,6 +158,16 @@ function applyData() {
 function currentTheme() {
   const [ink, muted] = THEMES[state.theme] || THEMES.black;
   return { ink, muted };
+}
+
+function hexToRgb(hex) {
+  const value = String(hex || '').replace('#', '');
+  if (!/^[0-9a-fA-F]{6}$/.test(value)) return [0, 0, 0];
+  return [
+    Number.parseInt(value.slice(0, 2), 16),
+    Number.parseInt(value.slice(2, 4), 16),
+    Number.parseInt(value.slice(4, 6), 16)
+  ];
 }
 
 function setTheme(theme) {
@@ -194,6 +223,18 @@ function clearPixel(data, offset) {
   data[offset + 3] = 0;
 }
 
+function paintInkPixel(data, offset, value, ink, transparentWhite) {
+  const opacity = 1 - value / 255;
+  if (transparentWhite && opacity < 0.04) {
+    clearPixel(data, offset);
+    return;
+  }
+  data[offset] = ink[0];
+  data[offset + 1] = ink[1];
+  data[offset + 2] = ink[2];
+  data[offset + 3] = Math.round(255 * opacity);
+}
+
 function ditheredValue(gray, x, y, preset, matrix) {
   if (!preset.threshold) return gray;
   if (!preset.enableDither) return gray > 128 ? 255 : 0;
@@ -209,6 +250,7 @@ function processTypeCanvas(img, mode) {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   const matrix = preset.enableDither ? buildBayer(preset.matrixSize) : null;
+  const ink = hexToRgb(currentTheme().ink);
 
   canvas.width = width;
   canvas.height = height;
@@ -226,8 +268,7 @@ function processTypeCanvas(img, mode) {
         continue;
       }
       const value = ditheredValue(adjustedGray(pixels, offset, preset), x, y, preset, matrix);
-      pixels[offset] = pixels[offset + 1] = pixels[offset + 2] = value;
-      pixels[offset + 3] = 255;
+      paintInkPixel(pixels, offset, value, ink, preset.transparentWhite);
     }
   }
 
@@ -317,8 +358,15 @@ function renderType() {
   }
 
   typeSlot.innerHTML = '<pre></pre>';
-  typeSlot.querySelector('pre').textContent = ' /\\\\_/\\\\\n( o.o )\n > ^ <';
+  typeSlot.querySelector('pre').textContent = state.typeGlyph;
   fitReceiptPreview();
+}
+
+function applyInputValues() {
+  Object.entries(EDIT_FIELDS).forEach(([inputId, field]) => {
+    const input = document.getElementById(inputId);
+    if (input) input.value = data[field] || '';
+  });
 }
 
 function fitReceiptPreview() {
@@ -328,8 +376,10 @@ function fitReceiptPreview() {
 
 function syncInputs() {
   Object.entries(EDIT_FIELDS).forEach(([inputId, field]) => {
-    data[field] = document.getElementById(inputId).value || data[field];
+    const input = document.getElementById(inputId);
+    if (input) data[field] = input.value || data[field];
   });
+  data.rarity = data.rarity || rarityForType(data.type);
   applyData();
   fitReceiptPreview();
 }
@@ -383,6 +433,15 @@ function canvasToBlob(canvas) {
         reject(new Error('PNG export failed'));
       }
     }, 'image/png');
+  });
+}
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
   });
 }
 
@@ -484,6 +543,7 @@ async function exportPngBlob() {
   syncInputs();
   if (state.typeSource && !state.typeImage) await refreshTypeImage(false);
   if (document.fonts?.ready) await document.fonts.ready;
+  applyData();
 
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
@@ -546,15 +606,18 @@ document.getElementById('typeImageInput').addEventListener('change', (event) => 
 });
 
 Object.keys(EDIT_FIELDS).forEach((id) => {
-  document.getElementById(id).addEventListener('input', () => {
+  const input = document.getElementById(id);
+  if (!input) return;
+  input.addEventListener('input', () => {
     syncInputs();
     replayReceipt();
   });
 });
 
 document.querySelectorAll('[data-theme]').forEach((button) => {
-  button.addEventListener('click', () => {
+  button.addEventListener('click', async () => {
     setTheme(button.dataset.theme);
+    if (state.typeSource) await refreshTypeImage(false);
     replayReceipt();
   });
 });
@@ -569,8 +632,29 @@ document.getElementById('downloadButton').addEventListener('click', downloadPng)
 document.getElementById('shareButton').addEventListener('click', sharePng);
 window.addEventListener('resize', fitReceiptPreview);
 
-setTheme(state.theme);
-renderType();
-preparePrintLines();
-applyData();
-replayReceipt();
+async function initializeReceiptApp() {
+  setTheme(state.theme);
+  applyInputValues();
+  applyData();
+  preparePrintLines();
+  if (state.typeSource) {
+    await refreshTypeImage(false);
+  } else {
+    renderType();
+  }
+  if (AUTO_REPLAY) replayReceipt();
+}
+
+const appReady = initializeReceiptApp();
+
+window.personalityReceiptApp = {
+  ready: appReady,
+  exportPngBlob: async () => {
+    await appReady;
+    return await exportPngBlob();
+  },
+  exportPngDataUrl: async () => {
+    await appReady;
+    return await blobToDataUrl(await exportPngBlob());
+  }
+};

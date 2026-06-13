@@ -1,0 +1,27 @@
+{
+  "_contract": "personality-receipt.app.v1",
+  "theme": "yanzhi",
+  "typeImage": "",
+  "typeImageMode": "clean",
+  "typeGlyph": "  . * .\n *(   )*\n(  \\_/  )\n `-._.-'",
+  "receipt": {
+    "heading": "RECEIPT",
+    "cashier": "CASHIER",
+    "cashierValue": "GPT-5",
+    "payment": "PAYMENT",
+    "paymentValue": "YESHU",
+    "dateLine": "DATE",
+    "time": "2026-06-13 14:27",
+    "counter": "NO.002",
+    "receiptId": "PR_TEST_ASCII_SPARK",
+    "mbti": "ENFP",
+    "energy": "换个场景",
+    "decision": "先说草稿",
+    "stress": "跑一小圈",
+    "collab": "接住联想",
+    "total": "火花成云",
+    "type": "狐狸",
+    "verdict": "FAST SPARK. SOFT LANDING.",
+    "barcode": "||| || ||||| | || ||||"
+  }
+}
