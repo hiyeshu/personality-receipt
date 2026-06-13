@@ -97,5 +97,6 @@ app/index.html
 - 2026-06-13: `.gitignore` 新增 `outputs/*.json`，防止本机生成小票 JSON 和绝对路径进入 skill 包。
 - 2026-06-13: renderer 默认输出 JSON/HTML/PNG 三件套，支持 `--json-output` 与 `--html-output` 指定单张小票 sidecar 路径。
 - 2026-06-13: 将 `references/check.md` 改为 skill 启动后的前置阅读边界，遇到运行不了、路径异常、旧文件名残留等故障信号时主动检查与修复。
+- 2026-06-13: 将人格小票默认完成态明确为 app.v1 JSON + HTML + PNG，聊天文字只作为摘要和解释。
 
 [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md

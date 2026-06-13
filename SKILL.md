@@ -1,15 +1,15 @@
 ---
 name: personality-receipt
-description: Use this skill when the user asks for 人格小票, personality receipt, MBTI/type compression, self-pattern inference from memory, or a shareable receipt PNG/card. Read available context first, ask only 2-3 gap questions when needed, then produce a Chinese receipt and optional app.v1 JSON/PNG via scripts/render-receipt.mjs. Also use it when this skill package appears incomplete or installation files need checking.
+description: Use this skill when the user asks for 人格小票, personality receipt, MBTI/type compression, self-pattern inference from memory, or a shareable receipt PNG/card. Read available context first, ask only 2-3 gap questions when needed, then produce a Chinese receipt as app.v1 JSON plus HTML/PNG via scripts/render-receipt.mjs. Also use it when this skill package appears incomplete or installation files need checking.
 license: Proprietary
-compatibility: Requires a POSIX shell, Node.js 22+, and a local Chrome/Chromium executable for optional PNG rendering.
+compatibility: Requires a POSIX shell, Node.js 22+, and a local Chrome/Chromium executable for receipt HTML/PNG rendering.
 metadata:
-  version: "0.3.4"
+  version: "0.3.5"
 ---
 
 <!--
 [INPUT]: 依赖当前对话、可访问记忆、用户提供文本、references 下的格式规则、references/check.md 的前置完整性边界和 app/assets/scripts 的渲染资源
-[OUTPUT]: 对外提供中文人格小票生成流程、缺口提问流程、类型压缩规则、PNG 小票渲染流程、app.v1 无图 ASCII 兜底和安装后查漏流程
+[OUTPUT]: 对外提供中文人格小票生成流程、缺口提问流程、类型压缩规则、app.v1 JSON/HTML/PNG 渲染流程、无图 ASCII 兜底和安装后查漏流程
 [POS]: personality-receipt 的主入口，负责路由到资源文件、约束最终输出并在需要时调用 renderer
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -28,8 +28,10 @@ metadata:
   -> 询问缺口
   -> 生成类型印章
   -> 类型压缩
-  -> 输出中文小票
-  -> 可选渲染 PNG
+  -> 生成 app.v1 中文小票 JSON
+  -> 校验 JSON
+  -> 调用 renderer
+  -> 输出 JSON/HTML/PNG 路径
 ```
 
 ## 0. 安装完整性检查
@@ -109,11 +111,13 @@ metadata:
 
 如果用户只想娱乐，标为低置信度娱乐版。
 
-## 6. 输出中文人格小票
+## 6. 生成中文人格小票
 
-最终输出必须是中文。默认使用 `references/receipt-style.md` 的热敏纸小票结构，不要退化成普通报告。
+最终小票不是聊天里的纯文字，而是 `app.v1 JSON -> app/index.html + app/app.js -> HTML/PNG`。默认必须渲染 HTML 和 PNG；不要把 fenced `text` 预览当成完成态。
 
-必须包含：
+内容必须是中文，默认使用 `references/receipt-style.md` 的热敏纸内容口径，不要退化成普通报告。
+
+机器小票必须包含：
 
 - ASCII 类型印章
 - 票号、日期、来源和条码
@@ -125,7 +129,7 @@ metadata:
 - 危险提示
 - 判词
 
-输出短句。像热敏纸小票。可以锋利，但不要羞辱用户。小票主体必须放进 fenced `text` 代码块。
+输出短句。像热敏纸小票。可以锋利，但不要羞辱用户。聊天里可以用短摘要说明判断，但小票本体必须生成 app.v1 JSON，并交给 renderer 产出 HTML/PNG。
 
 ## 失败处理
 
@@ -155,10 +159,12 @@ metadata:
 - 是否有可行动的协作说明？
 - 是否全中文输出？
 - 是否避免心理诊断？
+- 是否生成并校验 app.v1 JSON？
+- 是否调用 `scripts/render-receipt.mjs` 并输出 JSON/HTML/PNG 绝对路径？
 
-## 7. 可选 PNG 渲染
+## 7. HTML/PNG 渲染
 
-当用户要求“生成图片”、“PNG”、“卡片”、“小票图”或“热敏纸图片”时，模型只产出 app.v1 JSON，不产出 HTML/CSS。票面唯一机器相是 `app/index.html + app/app.js`；renderer 只是把 JSON 注入 app 页面并调用 app 的 canvas 导出。
+生成中文小票时，模型只产出 app.v1 JSON，不产出 HTML/CSS。票面唯一机器相是 `app/index.html + app/app.js`；renderer 只是把 JSON 注入 app 页面并调用 app 的 canvas 导出。HTML/PNG 不是可选装饰，而是默认完成态。
 
 读取：
 
@@ -174,12 +180,15 @@ metadata:
 ```text
 小票判断
   -> app.v1 receipt JSON
+  -> 按 `references/receipt-json-contract.md` 自检 JSON
   -> node scripts/render-receipt.mjs <json> --output outputs/<receiptId>.png
   -> 生成 outputs/<receiptId>.json + outputs/<receiptId>.html + outputs/<receiptId>.png 三件套
-  -> 展示 HTML/PNG 绝对路径
+  -> 展示 JSON/HTML/PNG 绝对路径
 ```
 
 JSON 只填槽位。排版属于 app 页面，不属于模型自由发挥。renderer 接受 app.v1；旧 flat receipt JSON 只作为兼容输入，不再作为首选契约。
+
+如果 renderer 失败，任务未完成。根据 stderr 修 JSON、检查 Chrome 路径或按 `references/check.md` 查包，不要退回“只有文字版”作为完成结果。
 
 出票模型规则：
 

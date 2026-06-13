@@ -20,8 +20,8 @@
 3. 只补问 2-3 个具体场景问题。
 4. 压缩成 MBTI/type 提示，但不把类型当身份。
 5. 生成类型印章、行动签、总评、类型和稀有度。
-6. 输出中文热敏纸小票。
-7. 需要图片时，写 app.v1 receipt JSON；本地 renderer 复用静态 app 导出 PNG，网页验收用 app HTML fixture 承载同一份 JSON。
+6. 生成中文热敏纸小票内容。
+7. 写 app.v1 receipt JSON，本地 renderer 复用静态 app 导出 HTML/PNG；默认完成态是 JSON/HTML/PNG 三件套。
 
 ## 安装
 
@@ -111,7 +111,7 @@ PR_YYYYMMDD_001_A7C3
 
 ## PNG renderer
 
-使用 Node renderer 生成确定性三件套。renderer 不维护第二套模板；它把 app.v1 JSON 注入 `app/index.html`，先保存单张小票 HTML fixture，再加载 `app/app.js` 调用 canvas 导出 API：
+人格小票默认用 Node renderer 生成确定性三件套。renderer 不维护第二套模板；它把 app.v1 JSON 注入 `app/index.html`，先保存单张小票 HTML fixture，再加载 `app/app.js` 调用 canvas 导出 API：
 
 ```bash
 node scripts/render-receipt.mjs assets/sample-receipt.json
@@ -139,6 +139,8 @@ node scripts/render-receipt.mjs assets/sample-receipt.json --output outputs/PR_D
 ```text
 agent reasoning -> app.v1 receipt JSON -> app/index.html + app/app.js -> HTML + PNG
 ```
+
+聊天文字只是解释和摘要，不是人格小票的完成态。renderer 失败时要修 JSON、Chrome 或安装包，不用纯文本结果替代 HTML/PNG。
 
 不要把长证据、心理诊断、后台字段或邮件投递塞进图片。小票要短、可打印、可分享。
 
@@ -180,7 +182,7 @@ personality-receipt/
 │   ├── gap-questions.md              # 缺口问题模板
 │   ├── buddy-stamps.md               # 类型印章规则
 │   ├── type-glyphs.md                # ASCII 类型字形库
-│   ├── receipt-style.md              # 热敏纸文本样式
+│   ├── receipt-style.md              # 热敏纸内容草稿口径
 │   └── receipt-json-contract.md      # app.v1 JSON 契约
 ├── scripts/
 │   ├── CLAUDE.md                     # scripts 局部地图
