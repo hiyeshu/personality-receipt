@@ -1,13 +1,13 @@
 <!--
-[INPUT]: 依赖 pattern-fields.md 的运行模式和 receipt-json-contract.md 的 type/typeGlyph/rarity 字段契约
-[OUTPUT]: 对外提供唯一类型原型查找表、稀有度锚点、ASCII typeGlyph 合法值和无图 fallback 选择规则
+[INPUT]: 依赖 pattern-fields.md 的运行模式、五维倾向和 receipt-json-contract.md 的 type/typeGlyph/rarity 字段契约
+[OUTPUT]: 对外提供唯一类型原型查找表、稀有度锚点、五维 glyph 修正、ASCII typeGlyph 合法值和无图 fallback 选择规则
 [POS]: references 的视觉素材库，被 SKILL.md 和 app fallback 读取；只供查表，不生成新字段
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
 
 # 类型 ASCII 查找表
 
-本文件是 `typeGlyph` 的唯一素材库。模型不临场自由画图，只根据 `receipt.type` 选择同名原型，复制对应 ASCII 到 JSON。
+本文件是 `typeGlyph` 的唯一素材库。模型不临场自由画图；先根据 `receipt.type` 查 canonical 原型，再按五维倾向修正，最后复制表内 ASCII 到 JSON。
 
 ## 查表协议
 
@@ -19,6 +19,29 @@ receipt.type 是自由新原型      -> 选最接近的 canonical glyph，rarity
 ```
 
 `typeGlyph` 只允许来自本表。不要新增 `glyphVariant`、`shape`、`pose` 等隐藏字段；不要生成大图；不要为了好看突破 5 行限制。
+
+## 五维倾向修正
+
+在 canonical 查表后执行。它只影响 `typeGlyph` 选择，不修改 `receipt.type` 字段。
+
+```text
+自省 >= 70   -> 优先：猫头鹰、白猫、幽灵    内收、中心化、观察感强
+混沌 >= 70   -> 优先：龙、鸭、章鱼          动态、偏移感、多线程
+锋利 >= 70   -> 优先：仙人掌、鹅、狐狸      硬线条、有刺、边界强
+耐心 >= 70   -> 优先：企鹅、乌龟、蜗牛      低重心、稳、续航强
+洞察 >= 70   -> 优先：猫头鹰、章鱼、白猫    眼睛、结构感、观察感强
+```
+
+执行顺序：
+
+```text
+1. 先按 receipt.type 查 canonical 表。
+2. 如果 canonical 原型与五维最高维冲突，从该维优先列表补选最接近的 glyph。
+3. 不修改 receipt.type；修正只影响 typeGlyph。
+4. 低置信度、五维均衡或最高维低于 70 时不修正，直接用 canonical 结果。
+```
+
+冲突的定义是：`receipt.type` 的 desc 与最高维方向相反，且反证强于原型证据。只是审美不够贴，不算冲突。
 
 ## 原型选择信号
 

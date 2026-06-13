@@ -1,7 +1,7 @@
 <!--
 [INPUT]: 依赖用户记忆、当前对话、用户提供文本中的行为证据和 receipt-json-contract.md 的 app.v1 字段
-[OUTPUT]: 对外提供从行为证据到 app.v1 receipt 槽位的 JSON 预处理规则、动作化候选和置信度标记
-[POS]: references 的 JSON 预处理手册，被 SKILL.md 的模式提取阶段读取；只为最终 JSON 赋值服务
+[OUTPUT]: 对外提供从行为证据到 app.v1 receipt 槽位的 JSON 预处理规则、摩擦力修正、动作化候选和置信度标记
+[POS]: references 的 JSON 预处理手册，被 SKILL.md 的模式提取阶段读取；只为最终 JSON 赋值和张力校准服务
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
 
@@ -52,13 +52,26 @@ gapList            低置信槽位 -> 需要补问的问题
 
 ## JSON 映射指南
 
+提取 pattern 前，先扫描材料中的「价值自述 vs 实际行为」摩擦。摩擦力是判断修正器，不是新字段，也不是单独输出。
+
+```text
+果断工作 vs 私生活随机       -> verdict 必须体现此张力
+边界洁癖 vs 连接需求         -> rarity 可下探一个区间
+效率追求 vs 厌恶机械化       -> total 必须包含此对冲
+高控制感 vs 被接住需求       -> stress/collab 候选受此影响
+长期目标 vs 当下逃避         -> decision/stress 候选必须拆开
+讨厌规则 vs 主动建立规则     -> total/verdict 必须咬住反差
+```
+
+没有明显摩擦时，按正常置信度走。低证据时不装摩擦：`rarity` 回到 `14.0%` 左右，`type` 用 `云团`。
+
 ```text
 能量来源 / 能量消耗       -> receipt.energy
 决策方式 / 选择噪音       -> receipt.decision
 压力反应 / 恢复动作       -> receipt.stress
 协作接口 / 轻连接入口     -> receipt.collab
-核心模式 / MBTI 反差      -> receipt.total
-决策模式 x 压力模式       -> receipt.verdict
+核心模式 / MBTI 反差 / 主摩擦 -> receipt.total
+决策模式 x 压力模式 / 主摩擦  -> receipt.verdict
 类型原型 / 五维极端值     -> receipt.type + receipt.rarity + typeGlyph
 证据强弱 / 反证           -> 聊天摘要，不进 PNG
 ```
@@ -91,17 +104,17 @@ receipt.collab
 
 ```text
 receipt.total
-  来源：核心模式 + mbti 的反差或精修
+  来源：核心模式 + mbti 的反差或精修 + 最主要摩擦
   形态：最多 8 个汉字，像金额总计
-  例：精密但短路 / 柔软但有刺 / 先结构后行动
+  例：在秩序中找裂缝 / 精密如表跳如火 / 柔软但有硬边
 
 receipt.verdict
-  来源：决策模式与压力模式的冲突
+  来源：decision_pattern x stress_pattern 的英文压缩
   形态：英文短戳记，不超过 32 个字符
-  例：QUIET MODE. HARD EDGE.
+  例：QUIET HUNTER. NOISY MIND. / HARD EDGE. SOFT EXIT.
 ```
 
-`total` 是整张票的价值缩影，不是摘要。`verdict` 是底部戳记，不是人生格言。
+`total` 是整张票的价值缩影，不是摘要。`verdict` 是底部戳记，不是人生格言。两者都必须吃进摩擦，否则只是漂亮废话。
 
 ## 五维属性
 
@@ -115,7 +128,7 @@ receipt.verdict
 锋利 0-100      对荒谬、低效、虚假叙事的敏感度
 ```
 
-建议使用 5 分粒度，例如 35、60、75。不要输出 73 这种伪精确数字。
+内部打分必须使用 5 分粒度，例如 35、60、75。不要输出 73 这种伪精确数字。
 
 稀有度咬合：
 
@@ -123,10 +136,11 @@ receipt.verdict
 普通分布        rarity 8%-18%
 一个极端值      rarity 5%-9%
 两个以上极端值  rarity 2%-6%
+清晰悖论摩擦    rarity 可下探一个区间
 低证据未定      rarity 14% 左右，type 用云团
 ```
 
-极端不是价值。它只表示类型系统里的少见程度。
+极端不是价值，悖论也不是表演。它们只表示类型系统里的少见程度；没有证据时不准装稀有。
 
 ## 证据分级
 
