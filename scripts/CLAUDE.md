@@ -3,7 +3,7 @@
 
 ## 成员清单
 
-render-receipt.mjs: Node.js 非交互 renderer，读取 app.v1 或 legacy receipt JSON，输出规范化 JSON，注入 `app/index.html`，固化单张小票 HTML fixture，加载 `app/app.js`，调用 app canvas 导出 API 生成 PNG，并在 stdout 返回结构化结果。
+render-receipt.mjs: Node.js 非交互 renderer，读取 app.v1 或 legacy receipt JSON，输出规范化 JSON，注入 `app/index.html`，固化单张小票 HTML fixture，仓库内 fixture 使用相对 `app/app.js`，调用 app canvas 导出 API 生成 PNG，并在 stdout 返回结构化结果。
 CLAUDE.md: scripts 目录地图，记录可执行脚本的职责和边界。
 
 ## 架构边界

@@ -20,7 +20,8 @@
 3. 抽取能量、决策、压力、协作四类运行模式，并直接动作化为行动签候选。
 4. 只为低置信 JSON 槽位补问 2-3 个具体场景问题。
 5. 压缩成 MBTI/type/rarity/total/verdict，但不把类型当身份。
-6. 写 app.v1 receipt JSON，本地 renderer 复用静态 app 导出 HTML/PNG；默认完成态是 JSON/HTML/PNG 三件套。
+6. 先过展示层语义闸门，避免把源码、日志、真相源等分析证据直接塞进票面。
+7. 写 app.v1 receipt JSON，本地 renderer 复用静态 app 导出 HTML/PNG；默认完成态是 JSON/HTML/PNG 三件套。
 
 ## 安装
 
@@ -104,7 +105,8 @@ PR_YYYYMMDD_001_A7C3
 }
 ```
 
-四个 signal 值是行动签，不是分数。分数可以留在分析里，公开小票只放当天能做的小动作。
+四个 signal 值是行动签，不是分数。分数可以留在分析里，公开小票只放当天能做的小动作。`energy/stress` 尤其不能写成读源码、查日志、画方法图这类分析或诊断动作。
+`mbti` 只写标准 16 型或 `N/A`。证据不足时先问一个能改写判断的真实场景题；仍不足就写 `N/A`，不要输出 `XNTJ` 这类半确定标签，也不要硬编常见类型。
 `cashierValue` 是实际生成 JSON 的模型或 agent 名；无法确认精确版本时写家族名或 agent 名，严禁把 `GPT-5` 当占位符照抄。没填时 app/renderer 只兜底显示 `MODEL`，避免冒充具体模型。
 `rarity` 是 type 的稀有度百分比。参考表只做校准锚点，自由 type 可以自带百分比。
 `total` 是整张票的金额总计，必须是运行模式的最终缩影，不是普通摘要。
@@ -138,7 +140,7 @@ node scripts/render-receipt.mjs assets/sample-receipt.json --output outputs/PR_D
 好边界是：
 
 ```text
-evidence sensors -> slot probes -> app.v1 receipt JSON -> app/index.html + app/app.js -> HTML + PNG
+evidence sensors -> slot probes -> semantic gate -> app.v1 receipt JSON -> app/index.html + app/app.js -> HTML + PNG
 ```
 
 聊天文字只是解释和摘要，不是人格小票的完成态。renderer 失败时要修 JSON、Chrome 或安装包，不用纯文本结果替代 HTML/PNG。
@@ -190,7 +192,7 @@ personality-receipt/
 │   └── render-receipt.mjs            # JSON -> HTML + PNG renderer
 ├── test/
 │   ├── CLAUDE.md                     # test 局部地图
-│   ├── inputs/                       # 三组 app.v1 无图验收 JSON
+│   ├── inputs/                       # app.v1 验收 JSON
 │   ├── html/                         # app HTML fixture
 │   └── png/                          # app 导出的 PNG 小票
 └── outputs/

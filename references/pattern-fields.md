@@ -1,6 +1,6 @@
 <!--
 [INPUT]: 依赖用户记忆、当前对话、用户提供文本中的行为证据和 receipt-json-contract.md 的 app.v1 字段
-[OUTPUT]: 对外提供从行为证据到 app.v1 receipt 槽位的 JSON 预处理规则、摩擦力修正、动作化候选和置信度标记
+[OUTPUT]: 对外提供从行为证据到 app.v1 receipt 槽位的 JSON 预处理规则、摩擦力修正、动作化候选、MBTI 低置信处理、展示层语义标签和置信度标记
 [POS]: references 的 JSON 预处理手册，被 SKILL.md 的模式提取阶段读取；只为最终 JSON 赋值和张力校准服务
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -28,6 +28,20 @@
 
 每条证据都先变成一个候选动作、候选定性或候选张力。后续 JSON 只做压缩，不做重新发明。
 
+进入契约前，给候选值打一个语义标签：
+
+```text
+补能       可以进入 receipt.energy
+降噪       可以进入 receipt.decision
+泄压       可以进入 receipt.stress
+轻连接     可以进入 receipt.collab
+分析证据   只能影响内部判断、聊天摘要、total 或 verdict
+方法论模板  只有被证明是用户当天会做的小动作时，才可重写后进入行动签
+口号酷句   不进入行动签；verdict 也必须重新压成 decision x stress
+```
+
+源码、日志、真相源、ownership、边界这些词常常是强证据，但默认属于分析层。它们能说明用户如何判断世界，不等于用户当下该如何补能或泄压。
+
 内部可用这个形状思考，但不要把它输出为 app.v1 字段：
 
 ```text
@@ -36,6 +50,7 @@ decisionCandidate  证据 -> 动作化候选 -> 置信度
 stressCandidate    证据 -> 动作化候选 -> 置信度
 collabCandidate    证据 -> 动作化候选 -> 置信度
 typeSignal         五维极端值 + 稳定模式 -> type/rarity/verdict 候选
+mbtiCandidate      四维证据 -> 标准 16 型或 N/A -> 置信度
 gapList            低置信槽位 -> 需要补问的问题
 ```
 
@@ -73,10 +88,12 @@ gapList            低置信槽位 -> 需要补问的问题
 核心模式 / MBTI 反差 / 主摩擦 -> receipt.total
 决策模式 x 压力模式 / 主摩擦  -> receipt.verdict
 类型原型 / 五维极端值     -> receipt.type + receipt.rarity + typeGlyph
+MBTI 四维证据 / 不确定性  -> receipt.mbti 或 gap-questions.md
 证据强弱 / 反证           -> 聊天摘要，不进 PNG
 ```
 
 所有箭头左侧是传感器，右侧是唯一允许的票面落点。不要新增 `source`、`confidence`、`match`、`scores` 等字段。
+MBTI 不确定性不能用 `XNTJ`、`INXJ` 或“部分确定”进入票面；能问就问一个真实场景题，不能问或问后仍不足就写 `N/A`。
 
 ## 四个行动签槽位
 
@@ -84,18 +101,22 @@ gapList            低置信槽位 -> 需要补问的问题
 receipt.energy
   问题：用户最低成本的补能或启动动作是什么？
   输出：喝热咖啡 / 晒十分钟 / 独自去书店 / 走一小圈
+  禁入：画三格图 / 读源码 / 锁真相源
 
 receipt.decision
   问题：用户降低选择噪音时最自然的动作是什么？
   输出：写三行再定 / 画出边界 / 只选一件 / 明早再回
+  禁入：只有技术名词、没有动作的归属判断
 
 receipt.stress
   问题：用户受压后最安全的泄压或重建动作是什么？
   输出：慢呼吸三次 / 洗热水澡 / 找人吐槽 / 关掉手机
+  禁入：读原始日志 / 查一条日志 / 继续 debug
 
 receipt.collab
   问题：别人怎样最轻地接入用户的工作节奏？
   输出：给我目标 / 借个脑子 / 发个语音 / 讲五分钟
+  禁入：完整方法论、抽象价值宣言、需要长上下文的命令
 ```
 
 行动签必须是中文短动宾短语。不要写状态、评价、比例、解释或证据。

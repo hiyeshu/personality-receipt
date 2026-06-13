@@ -4,12 +4,12 @@ description: Use this skill when the user asks for 人格小票, personality rec
 license: Proprietary
 compatibility: Requires a POSIX shell, Node.js 22+, and a local Chrome/Chromium executable for receipt HTML/PNG rendering.
 metadata:
-  version: "0.3.6"
+  version: "0.3.8"
 ---
 
 <!--
 [INPUT]: 依赖当前对话、可访问记忆、用户提供文本、references/check.md 的前置完整性边界、pattern-fields.md/gap-questions.md 的分析规则、receipt-json-contract.md 的唯一输出契约、type-glyphs.md 的类型素材表和 app/assets/scripts 的渲染资源
-[OUTPUT]: 对外提供中文人格小票生成流程、缺口提问流程、类型压缩规则、app.v1 JSON/HTML/PNG 渲染流程、无图 ASCII 查表兜底和安装后查漏流程
+[OUTPUT]: 对外提供中文人格小票生成流程、缺口提问流程、类型压缩规则、MBTI 低置信问询与 N/A 降级、展示层语义闸门、app.v1 JSON/HTML/PNG 渲染流程、无图 ASCII 查表兜底和安装后查漏流程
 [POS]: personality-receipt 的主入口，负责从 app.v1 JSON 槽位反推证据、提问、压缩与 renderer 调用
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -29,6 +29,7 @@ app.v1 JSON 槽位反推
   -> 只补问低置信槽位
   -> 压缩类型、稀有度、判词和总计
   -> 生成 app.v1 中文小票 JSON
+  -> 通过展示层语义闸门
   -> 校验 JSON
   -> 调用 renderer
   -> 输出 JSON/HTML/PNG 路径
@@ -97,6 +98,8 @@ type-glyphs.md           素材表：按 type 查 rarity 和 ASCII typeGlyph
 
 要问能暴露行为、并能改写 `receipt.energy/decision/stress/collab/total/verdict` 的题。提问生成规则见 `references/gap-questions.md`。
 
+MBTI 低置信时，不许用 `XNTJ`、`INXJ` 或“部分确定”代替提问。先保证 P0 行动签槽位有证据；如果还剩问题预算，且一个真实场景题能改写四维判断，就问一次。用户不答或回答后仍不确定时，`receipt.mbti` 写 `N/A`，不要硬编常见类型。
+
 ## 4. 选择类型素材
 
 小票顶部放一个 3-5 行 ASCII 类型印章。它是运行模式的图标，不是装饰。
@@ -120,17 +123,37 @@ type-glyphs.md           素材表：按 type 查 rarity 和 ASCII typeGlyph
 - 类型候选不要超过 3 个
 - 不能把类型说成身份、命运、心理诊断
 - 不能为了让结论漂亮而忽略反证
+- MBTI 只输出标准 16 型或 `N/A`，不输出 `X***` 半确定标签
 
 如果用户只想娱乐，标为低置信度娱乐版。
 
 字段咬合：
 
-- `mbti` 是大众压缩标签，不是标题。
-- `total` 是对 `mbti` 的精修或反叛，必须像整张票的金额总计。
+- `mbti` 是大众压缩标签，不是标题；低证据先问，仍不足就 `N/A`。
+- `total` 是对有效 `mbti` 的精修或反叛；`mbti=N/A` 时改吃核心模式和主摩擦，必须像整张票的金额总计。
 - `verdict` 来自决策模式和压力模式的张力，不写随机格言。
 - `rarity` 来自 type 语义和五维极端程度；越极端越稀有，但不代表越好。
 
-## 6. 生成中文人格小票
+## 6. 展示层语义闸门
+
+生成 JSON 前，先把候选值过一遍展示层语义闸门。renderer 只能证明字段能渲染，不能证明字段像用户，也不能证明字段符合行动签语义。
+
+闸门顺序：
+
+1. 给每个候选值标记来源：`补能`、`降噪`、`泄压`、`轻连接`、`分析证据`、`方法论模板` 或 `口号酷句`。
+2. 只有前四类能进入对应行动签。`分析证据`、`方法论模板` 和 `口号酷句` 只能影响聊天摘要、`total` 或内部判断，不能直接进 `energy/stress/collab`。
+3. 四个行动签逐项问：当天能做吗？低成本吗？低风险吗？是用户本人的恢复或启动动作吗？不依赖完成一项工作吗？任一不满足，重写或补问。
+4. `verdict` 必须由 `decision_pattern x stress_pattern` 压缩。只要它像项目口号、技术偏好、英文酷句或临场造句，就退回重写。
+
+硬禁例：
+
+- `receipt.energy` 不写 `画三格图`、`关门读源码`、`锁真相源`。这些是方法或工作证据，不是补能动作。
+- `receipt.stress` 不写 `读原始日志`、`查一条日志`、`看源码`。这些是诊断动作，不是泄压或恢复动作。
+- `receipt.verdict` 不写 `SOURCE FIRST. FIRE NEXT.` 这类口号。它必须吃进决策方式和压力反应的张力。
+
+技术证据可以保留在分析层。展示层必须翻译成身体、环境、节奏或连接层面的短动作。
+
+## 7. 生成中文人格小票
 
 最终小票不是聊天里的纯文字，而是 `app.v1 JSON -> app/index.html + app/app.js -> HTML/PNG`。默认必须渲染 HTML 和 PNG；不要把 fenced `text` 预览当成完成态。
 
@@ -170,8 +193,12 @@ type-glyphs.md           素材表：按 type 查 rarity 和 ASCII typeGlyph
 - 是否先读了记忆或说明没有可读记忆？
 - 是否只问了带目标 JSON 槽位、真实锚点、候选假设和反证方向的缺口问题？
 - 是否所有 pattern 都先动作化为 JSON 候选值？
+- 是否所有候选都通过展示层语义闸门，而不是只通过 JSON/renderer？
+- `energy/stress` 是否没有混入源码、日志、真相源、画图模板这类分析证据？
+- `verdict` 是否来自 `decision_pattern x stress_pattern`，而不是英文酷句？
 - 是否每个低置信槽位都有补问、降级或低证据兜底？
 - 是否把 MBTI 放进类型压缩，而不是当作标题？
+- `mbti` 低置信时是否先问了能改写判断的问题，仍不足时写 `N/A`，没有硬编或输出 `X***`？
 - 是否有反证？
 - 是否有可行动的协作说明？
 - 是否中文主体和英文 `verdict` 都符合 JSON 契约？
@@ -179,7 +206,7 @@ type-glyphs.md           素材表：按 type 查 rarity 和 ASCII typeGlyph
 - 是否生成并校验 app.v1 JSON？
 - 是否调用 `scripts/render-receipt.mjs` 并输出 JSON/HTML/PNG 绝对路径？
 
-## 7. HTML/PNG 渲染
+## 8. HTML/PNG 渲染
 
 生成中文小票时，模型只产出 app.v1 JSON，不产出 HTML/CSS。票面唯一机器相是 `app/index.html + app/app.js`；renderer 只是把 JSON 注入 app 页面并调用 app 的 canvas 导出。HTML/PNG 不是可选装饰，而是默认完成态。
 
@@ -197,6 +224,7 @@ type-glyphs.md           素材表：按 type 查 rarity 和 ASCII typeGlyph
 ```text
 小票判断
   -> app.v1 receipt JSON
+  -> 通过展示层语义闸门
   -> 按 `references/receipt-json-contract.md` 自检 JSON
   -> node scripts/render-receipt.mjs <json> --output outputs/<receiptId>.png
   -> 生成 outputs/<receiptId>.json + outputs/<receiptId>.html + outputs/<receiptId>.png 三件套

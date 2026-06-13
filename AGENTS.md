@@ -105,5 +105,6 @@ app/index.html
 - 2026-06-13: 按逆向设计重构 references 口径：pattern 是 JSON 预处理手册，gap questions 是低置信槽位探针，receipt contract 是唯一输出契约。
 - 2026-06-13: 删除冗余票面文案资源和旧类型印章资源，将微文案并入契约，将视觉素材并入类型查找表。
 - 2026-06-13: 强化 references 规则咬合，将 gap questions 改为侧写验证，将 pattern 引入摩擦力修正，将 contract 收紧为张力生成硬约束，将 type glyph 接入五维修正。
-
+- 2026-06-14: 新增展示层语义闸门，阻断 analysis 层证据直接泄漏进 `energy/decision/stress/collab/verdict`。
+- 2026-06-14: 收紧 MBTI 低置信规则，禁止 `X***` 半确定标签；能问则问，仍不足写 `N/A`。
 [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md

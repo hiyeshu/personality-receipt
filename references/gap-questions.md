@@ -1,6 +1,6 @@
 <!--
 [INPUT]: 依赖 pattern-fields.md 标记的低置信 JSON 槽位、用户记忆、当前对话和真实情境锚点
-[OUTPUT]: 对外提供能补齐 app.v1 JSON 槽位的侧写验证、困境二选一和 2-3 个动态探针
+[OUTPUT]: 对外提供能补齐 app.v1 JSON 槽位的侧写验证、困境二选一、MBTI 低置信单问或 N/A 降级和 2-3 个动态探针
 [POS]: references 的槽位补全层，只在 JSON 字段证据不足时被 SKILL.md 调用，负责把低置信槽位逼成动作候选
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 -->
@@ -36,13 +36,14 @@ P0  receipt.energy / decision / stress / collab 任一为空或低置信
 P1  receipt.total 没有核心模式，或只是普通人格摘要
 P1  receipt.verdict 没有决策 x 压力张力
 P2  receipt.type / rarity / typeGlyph 只剩装饰，没有模式依据
-P3  mbti 不确定；可直接写 N/A，不必为了 MBTI 单独发问
+P3  receipt.mbti 不确定；若一个真实场景问题能改写四维判断，可以补问一次；否则写 N/A
 ```
 
 强制规则：
 
 - 当 `receipt.stress` 的证据置信度低于中置信，必须优先问压力场景。
 - 当 `receipt.decision` 的证据置信度低于中置信，必须问一次真实选择场景。
+- 当 `receipt.mbti` 低置信，禁止输出 `XNTJ`、`INXJ`、`X***` 或“部分确定”。问题预算被 P0/P1 吃完时，直接写 `N/A`；预算仍在且有真实锚点时，只问一个能区分 I/E、S/N、T/F 或 J/P 的行为题。
 - 同一轮最多问 3 个槽位；超过 3 个说明证据太薄，生成低证据版本。
 
 ## 侧写验证强制模板

@@ -2,7 +2,7 @@
 
 /**
  * [INPUT]: 依赖 app/index.html、app/app.js、app.v1 小票 JSON、可选本地 typeImage/typeImageMode 和本机 Chrome/Chromium
- * [OUTPUT]: 对外提供 app.v1/legacy receipt JSON -> normalized JSON + app HTML fixture + app canvas -> PNG 的非交互渲染命令，stdout 输出结构化 JSON
+ * [OUTPUT]: 对外提供 app.v1/legacy receipt JSON -> normalized JSON + 可移植 app HTML fixture + app canvas -> PNG 的非交互渲染命令，stdout 输出结构化 JSON
  * [POS]: scripts 的核心 renderer，只做 JSON 规范化、HTML 固化和 app 导出包装，不拥有人格判断逻辑
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
@@ -277,9 +277,25 @@ function jsonForScript(value) {
     .replaceAll('\u2029', '\\u2029');
 }
 
-function buildExportHtml(payload, scale) {
+function isPathInside(parent, child) {
+  const relative = path.relative(parent, child);
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+}
+
+function relativeUrl(fromFile, toFile) {
+  const relative = path.relative(path.dirname(fromFile), toFile);
+  return relative.split(path.sep).map(encodeURIComponent).join('/');
+}
+
+function scriptSrcForOutput(htmlOutput) {
+  const appJsPath = path.join(skillRoot, 'app', 'app.js');
+  if (isPathInside(skillRoot, htmlOutput)) return relativeUrl(htmlOutput, appJsPath);
+  return pathToFileURL(appJsPath).href;
+}
+
+function buildExportHtml(payload, scale, htmlOutput) {
   const indexPath = path.join(skillRoot, 'app', 'index.html');
-  const appJsUrl = pathToFileURL(path.join(skillRoot, 'app', 'app.js')).href;
+  const appJsUrl = scriptSrcForOutput(htmlOutput);
   const indexHtml = readFileSync(indexPath, 'utf8');
   const bootScript = [
     '<script>',
@@ -324,6 +340,18 @@ function detectChrome(explicit) {
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function waitForClose(child, timeoutMs) {
+  if (child.exitCode !== null || child.signalCode !== null) return Promise.resolve();
+
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, timeoutMs);
+    child.once('close', () => {
+      clearTimeout(timer);
+      resolve();
+    });
+  });
 }
 
 function waitForDebugPort(child) {
@@ -491,8 +519,11 @@ async function runChromeExport(chrome, htmlPath, width, height, profileDir) {
   } finally {
     if (cdp) cdp.close();
     child.kill('SIGTERM');
-    await sleep(200);
-    if (!child.killed) child.kill('SIGKILL');
+    await waitForClose(child, 1000);
+    if (child.exitCode === null && child.signalCode === null) {
+      child.kill('SIGKILL');
+      await waitForClose(child, 1000);
+    }
   }
 }
 
@@ -535,11 +566,11 @@ async function main() {
 
   try {
     const payload = normalizeReceipt(readJson(inputPath), warnings, inputPath);
-    const html = buildExportHtml(payload, args.scale);
     const profileDir = path.join(tmp, 'chrome-profile');
     const output = path.resolve(args.output || path.join(skillRoot, 'outputs', `${safeFileName(payload.receipt.receiptId)}.png`));
     const jsonOutput = path.resolve(args.jsonOutput || defaultSidecarOutput(output, '.json'));
     const htmlOutput = path.resolve(args.htmlOutput || defaultSidecarOutput(output, '.html'));
+    const html = buildExportHtml(payload, args.scale, htmlOutput);
 
     if (new Set([output, jsonOutput, htmlOutput]).size !== 3) {
       throw new Error('JSON, HTML, and PNG output paths must be different.');
