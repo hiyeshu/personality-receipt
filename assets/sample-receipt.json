@@ -1,0 +1,30 @@
+{
+  "_protocol": "[PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md",
+  "receiptId": "PR_20260613_001_A7C3",
+  "date": "2026-06-13 00:12:00",
+  "title": "人 格 小 票",
+  "thanks": "THANK YOU FOR RUNNING THIS SYSTEM",
+  "typeImage": "",
+  "typeImageMode": "clean",
+  "typeImageOptions": {
+    "targetWidth": 220,
+    "matrixSize": 4,
+    "brightness": 1,
+    "contrast": 1,
+    "invert": false,
+    "enableDither": true
+  },
+  "typeGlyph": "▐▛███▜▌\n▝▜█████▛▘\n  ▘▘ ▝▝",
+  "mbti": "INTJ",
+  "match": "64%",
+  "items": {
+    "Energy": "喝热咖啡",
+    "Decision": "先别回消息",
+    "Stress": "找人吐槽",
+    "Collab": "约人散步"
+  },
+  "total": "先结构后行动",
+  "type": "企鹅",
+  "rarity": "12%",
+  "verdict": "YOU ARE NOT A TYPE. YOU ARE A WAY."
+}

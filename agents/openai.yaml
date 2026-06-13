@@ -1,0 +1,13 @@
+# [INPUT]: 依赖 personality-receipt/SKILL.md 的触发语和输出契约
+# [OUTPUT]: 对外提供 Codex UI 的显示名、短描述、默认提示和隐式触发策略
+# [POS]: agents 的界面元数据，被 Codex 技能列表和触发系统消费
+# [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+
+interface:
+  display_name: "人格小票生成器"
+  short_description: "先读记忆、补问缺口、打印中文人格运行小票与协作说明"
+  brand_color: "#111111"
+  default_prompt: "Use $personality-receipt to infer my operating pattern from memory, ask only gap questions, and print a Chinese personality receipt."
+
+policy:
+  allow_implicit_invocation: true

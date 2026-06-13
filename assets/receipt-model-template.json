@@ -1,0 +1,30 @@
+{
+  "_protocol": "[PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md",
+  "_contract": "personality-receipt.app.v1",
+  "_usage": "模型只填写 receipt/theme/typeImage/typeImageMode；不要输出解释文字，不要改字段名。",
+  "theme": "dailv",
+  "typeImage": "",
+  "typeImageMode": "clean",
+  "receipt": {
+    "heading": "RECEIPT",
+    "cashier": "CASHIER",
+    "cashierValue": "GPT-5",
+    "payment": "PAYMENT",
+    "paymentValue": "YESHU",
+    "dateLine": "DATE",
+    "time": "2026-06-13 09:31",
+    "counter": "NO.001",
+    "receiptId": "PR_20260613_001_A7C3",
+    "mbti": "INFJ",
+    "match": "64%",
+    "energy": "喝热咖啡",
+    "decision": "先别回消息",
+    "stress": "找人吐槽",
+    "collab": "约人散步",
+    "total": "柔软但警觉",
+    "type": "白猫",
+    "rarity": "12%",
+    "verdict": "SOFT FACE. SHARP SENSOR.",
+    "barcode": "||| ||||| || ||| | |||"
+  }
+}

@@ -1,0 +1,369 @@
+<!--
+[INPUT]: 依赖 scripts/render-receipt.mjs 注入的 receipt 数据、本地 typeImage 或 typeGlyph 与浏览器 HTML/CSS/canvas 渲染能力
+[OUTPUT]: 对外提供 384x620 PNG 小票卡片的固定 HTML 排版骨架，信号区展示 ACTION 行动签
+[POS]: assets 的核心小票模板，被 render-receipt.mjs 消费，不参与人格判断
+[PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+-->
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=384, initial-scale=1">
+  <title>{{TITLE}}</title>
+  <style>
+    :root {
+      --paper: #fff;
+      --ink: #111;
+      --muted: #555;
+      --soft: #e8e8e8;
+      --w: 384px;
+      --h: 620px;
+      --export-w: {{EXPORT_WIDTH}}px;
+      --export-h: {{EXPORT_HEIGHT}}px;
+      --export-scale: {{EXPORT_SCALE}};
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New";
+      --cjk: "PingFang SC", "Hiragino Sans GB", "Heiti SC", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC";
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: var(--export-w);
+      height: var(--export-h);
+      margin: 0;
+      overflow: hidden;
+      background: var(--paper);
+    }
+
+    body {
+      color: var(--ink);
+      font-family: var(--mono), var(--cjk), monospace;
+      font-size: 11px;
+      line-height: 1.34;
+      letter-spacing: 0;
+      font-variant-numeric: tabular-nums;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: geometricPrecision;
+    }
+
+    .scale-shell {
+      width: var(--w);
+      height: var(--h);
+      transform: scale(var(--export-scale));
+      transform-origin: top left;
+      background: var(--paper);
+    }
+
+    .receipt {
+      width: var(--w);
+      height: var(--h);
+      padding: 22px 26px 18px;
+      background: var(--paper);
+    }
+
+    .type-mark {
+      min-height: 58px;
+      text-align: center;
+      margin: 0 0 7px;
+    }
+
+    .type-mark:has(.type-image) {
+      min-height: 92px;
+      margin-bottom: 4px;
+    }
+
+    .type-glyph {
+      margin: 0;
+      white-space: pre;
+      font: inherit;
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    .type-image {
+      display: block;
+      max-width: 150px;
+      max-height: 90px;
+      margin: 0 auto;
+      object-fit: contain;
+      image-rendering: pixelated;
+      filter: grayscale(1) contrast(1.35);
+    }
+
+    .type-image[data-mode="stamp"],
+    .type-image[data-mode="thermal"] {
+      filter: none;
+    }
+
+    .brand {
+      text-align: center;
+      font-size: 13px;
+      line-height: 1.2;
+      font-weight: 700;
+      margin-bottom: 18px;
+      text-transform: uppercase;
+      font-family: var(--cjk), var(--mono), sans-serif;
+      letter-spacing: 0;
+    }
+
+    .thanks,
+    .meta {
+      text-align: center;
+      font-size: 11px;
+      line-height: 1.45;
+      font-weight: 700;
+    }
+
+    .thanks {
+      margin-bottom: 2px;
+    }
+
+    .meta {
+      margin-bottom: 13px;
+    }
+
+    .rule {
+      height: 1px;
+      margin: 7px 0;
+      background: var(--ink);
+    }
+
+    .rule.heavy {
+      height: 2px;
+      margin: 8px 0;
+    }
+
+    .rule.soft {
+      background: repeating-linear-gradient(
+        to right,
+        var(--ink) 0,
+        var(--ink) 5px,
+        transparent 5px,
+        transparent 8px
+      );
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
+      gap: 12px;
+      align-items: baseline;
+      min-height: 16px;
+    }
+
+    .key {
+      color: var(--muted);
+      text-transform: uppercase;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+
+    .value {
+      text-align: right;
+      font-weight: 700;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+
+    .section-head {
+      color: var(--muted);
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .total .key,
+    .total .value {
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .total .value {
+      font-family: var(--cjk), var(--mono), sans-serif;
+    }
+
+    .verdict {
+      margin: 14px auto 12px;
+      max-width: 288px;
+      text-align: center;
+      font-size: 12px;
+      line-height: 1.35;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .barcode {
+      margin-top: 8px;
+      text-align: center;
+      white-space: pre;
+      font-size: 11px;
+      line-height: 1.35;
+      font-weight: 700;
+    }
+
+    .receipt-id {
+      font-size: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="scale-shell">
+    <main class="receipt">
+      <div class="type-mark">{{TYPE_MARK}}</div>
+      <div class="brand">{{TITLE}}</div>
+
+      <div class="thanks">{{THANKS}}</div>
+      <div class="meta">
+        RECEIPT #: {{RECEIPT_ID}}<br>
+        DATE: {{DATE}}
+      </div>
+
+      <div class="rule heavy"></div>
+      {{SUMMARY_ROWS}}
+      <div class="rule soft"></div>
+
+      <div class="row section-head">
+        <div>SIGNAL</div>
+        <div class="value">ACTION</div>
+      </div>
+      <div class="rule"></div>
+      {{ITEM_ROWS}}
+
+      <div class="rule heavy"></div>
+      <div class="row total">
+        <div class="key">TOTAL</div>
+        <div class="value">{{TOTAL}}</div>
+      </div>
+      <div class="rule soft"></div>
+      {{EXTRA_ROWS}}
+
+      <div class="rule heavy"></div>
+      <div class="verdict">{{VERDICT}}</div>
+      <div class="barcode">{{BARCODE}}<br><span class="receipt-id">{{RECEIPT_ID}}</span></div>
+    </main>
+  </div>
+  <script>
+    (() => {
+      const BAYER_2 = [[0, 2], [3, 1]];
+
+      function buildBayer(size) {
+        if (size === 2) return BAYER_2;
+
+        const prev = buildBayer(size / 2);
+        const half = size / 2;
+        const matrix = Array.from({ length: size }, () => Array(size).fill(0));
+        const offsets = [[0, 2], [3, 1]];
+
+        for (let y = 0; y < half; y += 1) {
+          for (let x = 0; x < half; x += 1) {
+            for (let oy = 0; oy < 2; oy += 1) {
+              for (let ox = 0; ox < 2; ox += 1) {
+                matrix[y + oy * half][x + ox * half] = prev[y][x] * 4 + offsets[oy][ox];
+              }
+            }
+          }
+        }
+
+        return matrix;
+      }
+
+      function clamp(value) {
+        return Math.max(0, Math.min(255, value));
+      }
+
+      function adjustedGray(r, g, b, contrast, brightness) {
+        const gray = r * 0.299 + g * 0.587 + b * 0.114;
+        return clamp(((gray / 255 - 0.5) * contrast + 0.5) * brightness * 255);
+      }
+
+      function drawFit(ctx, img, width, height) {
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+      }
+
+      function processTypeImage(img) {
+        const mode = img.dataset.mode || 'clean';
+        if (mode === 'clean') return;
+        const targetWidth = Number(img.dataset.targetWidth || 220);
+        const matrixSize = Number(img.dataset.matrixSize || 4);
+        const brightness = Number(img.dataset.brightness || 1);
+        const contrast = Number(img.dataset.contrast || 1);
+        const invert = img.dataset.invert === 'true';
+        const enableDither = img.dataset.enableDither !== 'false';
+        const matrix = buildBayer(matrixSize);
+        const targetHeight = Math.max(1, Math.round(targetWidth * (img.naturalHeight / img.naturalWidth)));
+
+        const canvas = document.createElement('canvas');
+        canvas.width = targetWidth;
+        canvas.height = targetHeight;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        drawFit(ctx, img, targetWidth, targetHeight);
+
+        const imageData = ctx.getImageData(0, 0, targetWidth, targetHeight);
+        const data = imageData.data;
+
+        for (let y = 0; y < targetHeight; y += 1) {
+          for (let x = 0; x < targetWidth; x += 1) {
+            const offset = (y * targetWidth + x) * 4;
+            const gray = adjustedGray(
+              data[offset],
+              data[offset + 1],
+              data[offset + 2],
+              contrast,
+              brightness
+            );
+            const processed = invert ? 255 - gray : gray;
+
+            let value;
+            if (mode === 'stamp' || !enableDither) {
+              value = processed > 128 ? 255 : 0;
+            } else {
+              const threshold = (matrix[y % matrixSize][x % matrixSize] / (matrixSize * matrixSize)) * 255;
+              value = processed > threshold ? 255 : 0;
+            }
+
+            data[offset] = value;
+            data[offset + 1] = value;
+            data[offset + 2] = value;
+            data[offset + 3] = 255;
+          }
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+        img.src = canvas.toDataURL('image/png');
+      }
+
+      function ready(img) {
+        return new Promise((resolve) => {
+          const done = () => {
+            try {
+              processTypeImage(img);
+            } catch (error) {
+              img.dataset.processingError = error.message;
+            }
+            resolve();
+          };
+
+          if (img.complete && img.naturalWidth > 0) {
+            done();
+            return;
+          }
+
+          img.addEventListener('load', done, { once: true });
+          img.addEventListener('error', resolve, { once: true });
+        });
+      }
+
+      Promise
+        .all(Array.from(document.querySelectorAll('.type-image[data-mode]')).map(ready))
+        .then(() => {
+          document.documentElement.dataset.typeReady = 'true';
+        });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,599 @@
+<!--
+[INPUT]: 依赖 app/app.js 的行为层、浏览器 DOM/CSS 能力和可选类型图入口
+[OUTPUT]: 对外提供移动端优先的响应式小票预览、行动签信号区、分享字段编辑和控制区
+[POS]: app 的结构层，承载 RECEIPT 小票 DOM 和样式，被 app.js 驱动，不参与 skill 判断逻辑
+[PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+-->
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Personality Receipt</title>
+  <style>
+    :root {
+      --bg: #a8c98f;
+      --bg-dark: #7faa68;
+      --leaf: #5f8f52;
+      --leaf-dark: #3f6f38;
+      --leaf-soft: #dcebc3;
+      --paper: #fffaf0;
+      --ink: #2b2723;
+      --muted: #7a7164;
+      --receipt-ink: var(--ink);
+      --receipt-muted: var(--muted);
+      --line: #d9d5c7;
+      --outside-text: #26391f;
+      --scramble: var(--receipt-ink);
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New";
+      --cjk: "PingFang SC", "Hiragino Sans GB", "Heiti SC", "Microsoft YaHei", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        linear-gradient(180deg, rgba(255, 253, 244, 0.18), transparent 38%),
+        var(--bg);
+      color: var(--ink);
+      font-family: var(--mono), var(--cjk), monospace;
+    }
+
+    body {
+      padding: 14px;
+      padding-bottom: calc(18px + env(safe-area-inset-bottom));
+      overflow-x: hidden;
+    }
+
+    body[data-ink="dailan"] { --receipt-ink: #3f5f7f; --receipt-muted: #7a8996; }
+    body[data-ink="dailv"] { --receipt-ink: #587267; --receipt-muted: #7d8c84; }
+    body[data-ink="yanzhi"] { --receipt-ink: #9d2933; --receipt-muted: #9b7476; }
+    body[data-ink="zhecha"] { --receipt-ink: #8a5f45; --receipt-muted: #927c6d; }
+    body[data-ink="xiangjin"] { --receipt-ink: #b08a18; --receipt-muted: #9c8a50; }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    .app {
+      width: min(100%, 430px);
+      margin: 0 auto;
+      display: grid;
+      gap: 12px;
+      justify-items: center;
+    }
+
+    .receipt-shell {
+      position: relative;
+      width: 100%;
+      max-width: 430px;
+      padding-top: clamp(24px, 7vw, 34px);
+    }
+
+    .printer-mouth {
+      position: relative;
+      z-index: 3;
+      width: calc(100% - 56px);
+      height: 52px;
+      margin: 0 auto -10px;
+      border: 2px solid var(--ink);
+      border-radius: 18px 18px 8px 8px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.72), transparent 46%),
+        linear-gradient(180deg, var(--paper) 0%, var(--leaf-soft) 100%);
+      box-shadow:
+        inset 0 -4px 0 rgba(95, 143, 82, 0.18),
+        0 3px 0 rgba(43, 39, 35, 0.18),
+        0 10px 18px rgba(52, 82, 43, 0.16);
+    }
+
+    .printer-mouth::before {
+      content: "";
+      position: absolute;
+      left: 16%;
+      right: 16%;
+      top: 34px;
+      height: 7px;
+      border-radius: 999px;
+      background: var(--ink);
+      box-shadow:
+        inset 0 -2px 0 rgba(255, 250, 240, 0.18),
+        0 2px 0 rgba(255, 250, 240, 0.62);
+    }
+
+    .printer-mouth::after {
+      content: "";
+      position: absolute;
+      right: 18px;
+      top: 13px;
+      width: 12px;
+      height: 12px;
+      border-radius: 999px;
+      background: var(--leaf);
+      border: 2px solid var(--ink);
+      box-shadow: inset 0 2px 0 rgba(255, 250, 240, 0.52);
+    }
+
+    .print-window {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .print-window::before {
+      content: "";
+      position: absolute;
+      z-index: 2;
+      top: 0;
+      left: 12px;
+      right: 12px;
+      height: 20px;
+      pointer-events: none;
+      background:
+        radial-gradient(ellipse at center top, rgba(43, 39, 35, 0.22), transparent 64%),
+        linear-gradient(180deg, rgba(95, 143, 82, 0.12), transparent);
+    }
+
+    .receipt {
+      position: relative;
+      overflow: hidden;
+      background: var(--paper);
+      color: var(--receipt-ink);
+      border: 2px solid var(--receipt-ink);
+      box-shadow:
+        0 2px 0 rgba(16, 16, 16, 0.38),
+        0 14px 32px rgba(52, 82, 43, 0.22);
+    }
+
+    .receipt.is-running::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: -80px;
+      height: 80px;
+      pointer-events: none;
+      background: linear-gradient(180deg, transparent, rgba(16, 16, 16, 0.16), transparent);
+      animation: scan 520ms ease-out both;
+    }
+
+    .receipt-shell.is-printing .receipt {
+      animation: paperFeed 1180ms cubic-bezier(0.18, 0.82, 0.24, 1) both;
+    }
+
+    .receipt-shell.is-printing .heat-line {
+      animation: heatReveal 420ms steps(5, end) both;
+      animation-delay: var(--print-delay, 0ms);
+    }
+
+    .ticket-body {
+      padding: clamp(24px, 7vw, 30px) clamp(22px, 7vw, 34px) clamp(28px, 8vw, 34px);
+    }
+
+    .receipt-word {
+      margin: 2px 0 28px;
+      text-align: center;
+      color: var(--receipt-ink);
+      font-family: Impact, "Arial Black", var(--mono), sans-serif;
+      font-size: clamp(48px, 15vw, 64px);
+      font-weight: 950;
+      line-height: 0.9;
+      letter-spacing: 0.035em;
+      text-transform: uppercase;
+      transform: scaleX(1.08);
+      text-shadow:
+        2px 0 0 var(--receipt-ink),
+        0 2px 0 var(--receipt-ink),
+        -1px 0 0 var(--receipt-ink);
+    }
+
+    .type-mark {
+      display: grid;
+      place-items: center;
+      min-height: 88px;
+      margin-bottom: 24px;
+    }
+
+    .type-mark img {
+      max-width: 220px;
+      max-height: 220px;
+      object-fit: contain;
+      image-rendering: pixelated;
+    }
+
+    .type-mark pre {
+      margin: 0;
+      white-space: pre;
+      text-align: center;
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    .store-info {
+      display: grid;
+      gap: 4px;
+      margin: 0 0 36px;
+      color: var(--receipt-ink);
+      font-size: 12px;
+      line-height: 1.2;
+      font-weight: 950;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    .store-info .jp {
+      font-family: var(--cjk), var(--mono), sans-serif;
+      font-size: 13px;
+      font-weight: 950;
+    }
+
+    .store-info .date-line {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+    }
+
+    .rule {
+      height: 2px;
+      margin: 10px 0;
+      background: var(--receipt-ink);
+    }
+
+    .rule.soft {
+      height: 1px;
+      background: repeating-linear-gradient(
+        to right,
+        var(--receipt-ink) 0,
+        var(--receipt-ink) 6px,
+        transparent 6px,
+        transparent 10px
+      );
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+      gap: 10px;
+      min-height: 24px;
+      align-items: baseline;
+      font-size: 13px;
+    }
+
+    .key {
+      color: var(--receipt-muted);
+      text-transform: uppercase;
+    }
+
+    .value {
+      text-align: right;
+      font-weight: 900;
+    }
+
+    .section {
+      color: var(--receipt-muted);
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .total {
+      font-size: 18px;
+      min-height: 32px;
+    }
+
+    .total .key,
+    .total .value {
+      color: var(--receipt-ink);
+      font-weight: 950;
+    }
+
+    .verdict {
+      max-width: 280px;
+      margin: 16px auto 14px;
+      text-align: center;
+      color: var(--receipt-ink);
+      font-size: 15px;
+      font-weight: 950;
+      line-height: 1.4;
+    }
+
+    .barcode {
+      text-align: center;
+      color: var(--receipt-ink);
+      white-space: pre;
+      font-size: 13px;
+      font-weight: 900;
+      line-height: 1.32;
+    }
+
+    .receipt-id {
+      margin-top: 24px;
+      text-align: center;
+      color: var(--receipt-ink);
+      font-size: 12px;
+      font-weight: 950;
+      line-height: 1.2;
+    }
+
+    .scramble {
+      display: inline-block;
+      min-width: 1ch;
+    }
+
+    .scramble.scrambling {
+      color: var(--scramble);
+    }
+
+    .controls {
+      position: relative;
+      z-index: 10;
+      width: 100%;
+      max-width: 430px;
+      display: grid;
+      gap: 8px;
+      padding: 8px;
+      border: 2px solid rgba(43, 39, 35, 0.28);
+      border-radius: 16px;
+      background: rgba(255, 250, 240, 0.9);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.72),
+        0 14px 28px rgba(52, 82, 43, 0.28);
+      backdrop-filter: blur(14px);
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .field-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .swatches {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 6px;
+    }
+
+    button,
+    .file-label,
+    select,
+    input {
+      min-height: 44px;
+      border: 2px solid rgba(43, 39, 35, 0.24);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.72);
+      color: var(--ink);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82);
+    }
+
+    button {
+      cursor: pointer;
+      font-weight: 900;
+    }
+
+    .primary {
+      border-color: var(--ink);
+      background: var(--ink);
+      color: var(--paper);
+    }
+
+    .swatch {
+      min-height: 24px;
+      border-color: rgba(43, 39, 35, 0.22);
+      background: var(--swatch);
+      color: transparent;
+      box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.28);
+    }
+
+    .swatch[aria-pressed="true"] {
+      box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px var(--ink);
+    }
+
+    .accent {
+      border-color: var(--leaf-dark);
+      background: var(--leaf);
+      color: var(--paper);
+    }
+
+    .file-label {
+      position: relative;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      color: var(--ink);
+      font-weight: 900;
+    }
+
+    .file-label input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+    }
+
+    .field {
+      display: grid;
+      gap: 4px;
+    }
+
+    .field label {
+      color: var(--outside-text);
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .field input,
+    select {
+      width: 100%;
+      padding: 0 10px;
+      font-size: 12px;
+    }
+
+    .tune-menu {
+      display: grid;
+      gap: 10px;
+      max-height: min(52vh, 430px);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      padding: 10px;
+      border: 2px solid var(--ink);
+      border-radius: 14px;
+      background: var(--paper);
+      box-shadow: 0 12px 24px rgba(52, 82, 43, 0.24);
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .tune-menu[hidden] {
+      display: none;
+    }
+
+    @media (min-width: 860px) {
+      body {
+        padding: 26px 24px 18px;
+      }
+
+      .app {
+        width: min(100%, 980px);
+        grid-template-columns: minmax(390px, 430px) 340px;
+        align-items: start;
+        justify-content: center;
+        gap: 28px;
+      }
+
+      .controls {
+        position: sticky;
+        top: 26px;
+        bottom: auto;
+        width: 100%;
+        transform: none;
+        border-radius: 18px;
+      }
+
+      .actions {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation: none !important;
+        transition: none !important;
+      }
+    }
+
+    @keyframes scan {
+      from { transform: translateY(0); opacity: 1; }
+      to { transform: translateY(900px); opacity: 0; }
+    }
+
+    @keyframes paperFeed {
+      0% { transform: translateY(-86%); }
+      18% { transform: translateY(-66%); }
+      27% { transform: translateY(-66%); }
+      70% { transform: translateY(-14%); }
+      100% { transform: translateY(0); }
+    }
+
+    @keyframes heatReveal {
+      0% { opacity: 0; filter: blur(0.8px); transform: translateY(2px); }
+      54% { opacity: 0.58; filter: blur(0.3px); }
+      100% { opacity: 1; filter: none; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body data-ink="dailv">
+  <main class="app">
+    <section class="receipt-shell" aria-label="Receipt preview">
+      <div class="printer-mouth" aria-hidden="true"></div>
+      <div class="print-window">
+        <article class="receipt" id="receiptCard">
+          <div class="ticket-body">
+            <div class="receipt-word">RECEIPT</div>
+            <div class="type-mark" id="typeSlot"></div>
+
+            <div class="store-info">
+              <div class="date-line"><span class="scramble" data-field="cashier">CASHIER</span><span class="scramble" data-field="cashierValue">GPT-5</span></div>
+              <div class="date-line"><span class="scramble" data-field="payment">PAYMENT</span><span class="scramble" data-field="paymentValue">YESHU</span></div>
+              <div><span class="scramble" data-field="dateLine">DATE</span></div>
+              <div class="date-line"><span class="scramble" data-field="time">2026-06-13 09:31</span><span class="scramble" data-field="counter">NO.001</span></div>
+            </div>
+
+          <div class="rule"></div>
+          <div class="row"><span class="key">MBTI</span><span class="value scramble" data-field="mbti">INFJ</span></div>
+          <div class="row"><span class="key">匹配度(MATCH)</span><span class="value scramble" data-field="match">64%</span></div>
+          <div class="rule soft"></div>
+
+          <div class="row section"><span>SIGNAL</span><span class="value">ACTION</span></div>
+          <div class="row"><span class="key">能量(ENERGY)</span><span class="value scramble" data-field="energy">喝热咖啡</span></div>
+          <div class="row"><span class="key">决策(DECISION)</span><span class="value scramble" data-field="decision">先别回消息</span></div>
+          <div class="row"><span class="key">压力(STRESS)</span><span class="value scramble" data-field="stress">找人吐槽</span></div>
+          <div class="row"><span class="key">协作(COLLAB)</span><span class="value scramble" data-field="collab">约人散步</span></div>
+
+          <div class="rule"></div>
+          <div class="row total"><span class="key">TOTAL</span><span class="value scramble" data-field="total">柔软但警觉</span></div>
+          <div class="rule soft"></div>
+          <div class="row"><span class="key">类型(TYPE)</span><span class="value scramble" data-field="type">白猫</span></div>
+          <div class="row"><span class="key">稀有度(RARITY)</span><span class="value scramble" data-field="rarity">12%</span></div>
+
+          <div class="rule"></div>
+          <div class="verdict"><span class="scramble" data-field="verdict">SOFT FACE. SHARP SENSOR.</span></div>
+          <div class="barcode"><span class="scramble" data-field="barcode">||| ||||| || ||| | |||</span></div>
+          <div class="receipt-id"><span class="scramble" data-field="receiptId">PR_20260613_001_A7C3</span></div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="controls" aria-label="Controls">
+      <div class="actions">
+        <button class="accent" type="button" id="downloadButton">下载</button>
+        <button type="button" id="shareButton">分享</button>
+        <label class="file-label">
+          上传图片
+          <input type="file" id="typeImageInput" accept="image/*">
+        </label>
+        <button type="button" id="editButton" aria-expanded="false" aria-controls="editMenu">编辑</button>
+      </div>
+
+      <div class="tune-menu" id="editMenu" hidden>
+        <div class="swatches" aria-label="Ink color">
+          <button class="swatch" type="button" data-theme="black" style="--swatch:#2b2723" aria-label="黑">黑</button>
+          <button class="swatch" type="button" data-theme="dailan" style="--swatch:#3f5f7f" aria-label="黛蓝">黛蓝</button>
+          <button class="swatch" type="button" data-theme="dailv" style="--swatch:#587267" aria-label="黛绿" aria-pressed="true">黛绿</button>
+          <button class="swatch" type="button" data-theme="yanzhi" style="--swatch:#9d2933" aria-label="胭脂">胭脂</button>
+          <button class="swatch" type="button" data-theme="zhecha" style="--swatch:#8a5f45" aria-label="赭茶">赭茶</button>
+          <button class="swatch" type="button" data-theme="xiangjin" style="--swatch:#b08a18" aria-label="缃金">缃金</button>
+        </div>
+        <div class="field-grid">
+          <div class="field"><label for="cashierInput">Cashier</label><input id="cashierInput" value="GPT-5"></div>
+          <div class="field"><label for="paymentInput">Payment</label><input id="paymentInput" value="YESHU"></div>
+          <div class="field"><label for="mbtiInput">MBTI</label><input id="mbtiInput" value="INFJ"></div>
+          <div class="field"><label for="matchInput">Match</label><input id="matchInput" value="64%"></div>
+          <div class="field"><label for="totalInput">Total</label><input id="totalInput" value="柔软但警觉"></div>
+          <div class="field"><label for="typeInput">Type</label><input id="typeInput" value="白猫"></div>
+          <div class="field"><label for="rarityInput">Rarity</label><input id="rarityInput" value="12%"></div>
+          <div class="field"><label for="energyInput">Energy</label><input id="energyInput" value="喝热咖啡"></div>
+          <div class="field"><label for="decisionInput">Decision</label><input id="decisionInput" value="先别回消息"></div>
+          <div class="field"><label for="stressInput">Stress</label><input id="stressInput" value="找人吐槽"></div>
+          <div class="field"><label for="collabInput">Collab</label><input id="collabInput" value="约人散步"></div>
+          <div class="field"><label for="verdictInput">Verdict</label><input id="verdictInput" value="SOFT FACE. SHARP SENSOR."></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
