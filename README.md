@@ -9,19 +9,18 @@
 
 把对话、记忆或一段自我描述，压成一张可分享的热敏纸风格人格小票。
 
-它不是 MBTI 测试，也不是心理诊断。MBTI 只是短标签；真正有用的是小票里的行动签、类型原型、类型提示、稀有度和一句适合分享的判词。
+它不是 MBTI 测试，也不是心理诊断。MBTI 只是短标签；真正有用的是小票里的行动签、类型原型、稀有度和一句适合分享的判词。
 
 ## 这个技能做什么
 
 给 AI agent 一套完整的人格小票生成工作流：
 
-1. 先读当前对话、可用记忆或用户提供材料。
-2. 抽取能量、决策、压力、协作四类运行模式。
-3. 只补问 2-3 个具体场景问题。
-4. 压缩成 MBTI/type 提示，但不把类型当身份。
-5. 生成类型印章、行动签、总评、类型和稀有度。
-6. 生成中文热敏纸小票内容。
-7. 写 app.v1 receipt JSON，本地 renderer 复用静态 app 导出 HTML/PNG；默认完成态是 JSON/HTML/PNG 三件套。
+1. 先从 app.v1 JSON 槽位反推需要什么证据。
+2. 读当前对话、可用记忆或用户提供材料。
+3. 抽取能量、决策、压力、协作四类运行模式，并直接动作化为行动签候选。
+4. 只为低置信 JSON 槽位补问 2-3 个具体场景问题。
+5. 压缩成 MBTI/type/rarity/total/verdict，但不把类型当身份。
+6. 写 app.v1 receipt JSON，本地 renderer 复用静态 app 导出 HTML/PNG；默认完成态是 JSON/HTML/PNG 三件套。
 
 ## 安装
 
@@ -86,19 +85,19 @@ PR_YYYYMMDD_001_A7C3
 - `assets/receipt-model-template.json`
 - `references/receipt-json-contract.md`
 
-核心字段：
+`receipt` 内核心字段节选：
 
 ```json
 {
   "receiptId": "PR_20260613_001_A7C3",
-  "cashierValue": "GPT-5",
+  "cashierValue": "Codex",
   "paymentValue": "YESHU",
   "mbti": "INFJ",
   "energy": "喝热咖啡",
-  "decision": "先别回消息",
+  "decision": "写三行再定",
   "stress": "找人吐槽",
   "collab": "约人散步",
-  "total": "柔软但警觉",
+  "total": "先结构后行动",
   "type": "白猫",
   "rarity": "8.0%",
   "verdict": "SOFT FACE. SHARP SENSOR."
@@ -106,8 +105,10 @@ PR_YYYYMMDD_001_A7C3
 ```
 
 四个 signal 值是行动签，不是分数。分数可以留在分析里，公开小票只放当天能做的小动作。
-`cashierValue` 是实际生成 JSON 的模型或 agent 名；`GPT-5` 只是示例，换模型时要同步改成当前执行者。没填时 app/renderer 只兜底显示 `MODEL`，避免冒充具体模型。
+`cashierValue` 是实际生成 JSON 的模型或 agent 名；无法确认精确版本时写家族名或 agent 名，严禁把 `GPT-5` 当占位符照抄。没填时 app/renderer 只兜底显示 `MODEL`，避免冒充具体模型。
 `rarity` 是 type 的稀有度百分比。参考表只做校准锚点，自由 type 可以自带百分比。
+`total` 是整张票的金额总计，必须是运行模式的最终缩影，不是普通摘要。
+`verdict` 来自 decision 和 stress 的张力，不写随机格言。
 
 ## PNG renderer
 
@@ -137,12 +138,14 @@ node scripts/render-receipt.mjs assets/sample-receipt.json --output outputs/PR_D
 好边界是：
 
 ```text
-agent reasoning -> app.v1 receipt JSON -> app/index.html + app/app.js -> HTML + PNG
+evidence sensors -> slot probes -> app.v1 receipt JSON -> app/index.html + app/app.js -> HTML + PNG
 ```
 
 聊天文字只是解释和摘要，不是人格小票的完成态。renderer 失败时要修 JSON、Chrome 或安装包，不用纯文本结果替代 HTML/PNG。
 
 不要把长证据、心理诊断、后台字段或邮件投递塞进图片。小票要短、可打印、可分享。
+
+`references/` 采用逆向设计：每份文档都必须能说明自己让哪个 JSON 槽位更确定。`pattern-fields.md` 是预处理手册，`gap-questions.md` 是动态探针，`receipt-json-contract.md` 是唯一输出契约，`type-glyphs.md` 是类型素材查表。
 
 这个仓库不提供账号、邮件投递、托管存储或后端 secrets。以后若做发送服务，应放在独立可信 relay，不塞进 renderer。
 
@@ -178,12 +181,10 @@ personality-receipt/
 ├── references/
 │   ├── CLAUDE.md                     # references 局部地图
 │   ├── check.md                      # 安装完整性查漏协议
-│   ├── pattern-fields.md             # 运行模式字段口径
-│   ├── gap-questions.md              # 缺口问题模板
-│   ├── buddy-stamps.md               # 类型印章规则
-│   ├── type-glyphs.md                # ASCII 类型字形库
-│   ├── receipt-style.md              # 热敏纸内容草稿口径
-│   └── receipt-json-contract.md      # app.v1 JSON 契约
+│   ├── pattern-fields.md             # JSON 预处理手册
+│   ├── gap-questions.md              # 低置信槽位动态探针
+│   ├── type-glyphs.md                # 类型素材查表
+│   └── receipt-json-contract.md      # 唯一 app.v1 JSON 契约
 ├── scripts/
 │   ├── CLAUDE.md                     # scripts 局部地图
 │   └── render-receipt.mjs            # JSON -> HTML + PNG renderer

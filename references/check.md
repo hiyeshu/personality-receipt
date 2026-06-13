@@ -62,9 +62,7 @@ references/CLAUDE.md
 references/check.md
 references/pattern-fields.md
 references/gap-questions.md
-references/buddy-stamps.md
 references/type-glyphs.md
-references/receipt-style.md
 references/receipt-json-contract.md
 assets/CLAUDE.md
 assets/receipt-model-template.json
